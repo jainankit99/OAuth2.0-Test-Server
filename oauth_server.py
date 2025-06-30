@@ -171,8 +171,4 @@ def protected_admin_resource():
     return jsonify({"message": f"Hello, {client_id}! You performed an admin action."}), 200
 
 
-if __name__ == '__main__':
-    print(f"Local OAuth Server started at http://127.0.0.1:5000")
-    print(f"Client Credentials: {CLIENTS}")
-    print(f"JWT Secret: {JWT_SECRET_KEY}")
-    app.run(debug=True) # debug=True enables auto-reloading and better error messages
+app = Flask(__name__)
