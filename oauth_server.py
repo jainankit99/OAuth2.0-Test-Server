@@ -1,37 +1,35 @@
-from flask import Flask, request, jsonify
+# oauth_server.py
+
+# --- Imports ---
 import base64
 import jwt
 import time
 import datetime
 from functools import wraps
-
-app = Flask(__name__)
+from flask import Flask, request, jsonify
 
 # --- Configuration for Testing ---
-# IMPORTANT: In a real app, never hardcode secrets like this!
-# Use environment variables, a secret manager, or a database.
 CLIENTS = {
     "testclient_id": {
         "client_secret": "testclient_secret",
-        "allowed_scopes": ["read", "write", "admin:data"]
+        "allowed_scopes": ["read", "write", "admin:data", "no-scope-needed"]
     },
     "another_client": {
         "client_secret": "another_secret",
         "allowed_scopes": ["read"]
     }
 }
+JWT_SECRET_KEY = "your_super_secret_jwt_key_for_testing_only_make_it_long_and_random_in_prod"
+TOKEN_EXPIRATION_SECONDS = 3600
 
-# JWT Secret Key (for signing tokens)
-JWT_SECRET_KEY = "your_super_secret_jwt_key_for_testing_only"
-TOKEN_EXPIRATION_SECONDS = 3600 # 1 hour
+# --- Flask App Initialization ---
+# THIS LINE MUST BE AT THE TOP LEVEL OF THE FILE, OUTSIDE ANY `if __name__ == '__main__':` BLOCK
+app = Flask(__name__)
 
-# --- Helper Functions ---
+# --- Helper Functions (These can be defined anywhere as long as they are callable by the routes) ---
 
 def authenticate_client(req):
-    """
-    Authenticates client using Basic Authorization header.
-    Returns client_id if successful, None otherwise.
-    """
+    # ... (your existing code for authenticate_client) ...
     auth_header = req.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Basic '):
         return None, "Missing or invalid Basic Auth header"
@@ -48,42 +46,34 @@ def authenticate_client(req):
         return client_id, None
     return None, "Invalid client credentials"
 
+
 def validate_scopes(requested_scopes_str, allowed_scopes):
-    """
-    Validates if all requested scopes are allowed for the client.
-    Returns list of valid scopes or None if any requested scope is not allowed.
-    """
+    # ... (your existing code for validate_scopes) ...
     if not requested_scopes_str:
-        return [], None # No scopes requested, return empty list of granted scopes
+        return [], None
 
     requested_scopes = set(requested_scopes_str.split(' '))
     granted_scopes = [s for s in requested_scopes if s in allowed_scopes]
 
     if len(granted_scopes) != len(requested_scopes):
-        # Some requested scopes were not allowed
         return None, f"One or more requested scopes are invalid or not allowed: {requested_scopes_str}"
     return granted_scopes, None
 
 def generate_access_token(client_id, scopes):
-    """
-    Generates a simple JWT access token.
-    """
+    # ... (your existing code for generate_access_token) ...
     payload = {
         "iss": "local-oauth-server",
         "aud": "your-resource-server",
         "sub": client_id,
         "iat": int(time.time()),
         "exp": int(time.time()) + TOKEN_EXPIRATION_SECONDS,
-        "scope": " ".join(scopes) # Space-separated string of granted scopes
+        "scope": " ".join(scopes)
     }
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
     return token
 
 def verify_access_token(req):
-    """
-    Verifies the Bearer token in the Authorization header.
-    Returns decoded payload if valid, None otherwise.
-    """
+    # ... (your existing code for verify_access_token) ...
     auth_header = req.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         return None, "Missing or invalid Bearer token"
@@ -99,10 +89,8 @@ def verify_access_token(req):
     except Exception as e:
         return None, f"Token verification failed: {str(e)}"
 
-def require_scopes(required_scopes):
-    """
-    Decorator to protect resource endpoints with scope validation.
-    """
+def require_scopes(required_scopes_list):
+    # ... (your existing code for require_scopes) ...
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -110,23 +98,22 @@ def require_scopes(required_scopes):
             if payload is None:
                 return jsonify({"error": "unauthorized", "message": error}), 401
 
-            token_scopes = payload.get('scope', '').split(' ')
-            if not all(s in token_scopes for s in required_scopes):
-                return jsonify({"error": "insufficient_scope", "message": f"Requires scopes: {required_scopes}"}), 403
+            token_scopes_str = payload.get('scope', '')
+            token_scopes = set(token_scopes_str.split(' '))
 
-            request.token_payload = payload # Attach payload to request for later use
+            if not all(s in token_scopes for s in required_scopes_list):
+                return jsonify({"error": "insufficient_scope", "message": f"Required scopes: {', '.join(required_scopes_list)}"}), 403
+
+            request.token_payload = payload
             return f(*args, **kwargs)
         return decorated_function
     return decorator
 
-
 # --- Endpoints ---
-
+# These MUST use the 'app' defined at the top level
 @app.route('/oauth/token', methods=['POST'])
 def get_token():
-    """
-    Handles OAuth 2.0 Client Credentials Grant requests.
-    """
+    # ... (your existing code for get_token) ...
     grant_type = request.form.get('grant_type')
     requested_scopes_str = request.form.get('scope', '')
 
@@ -137,7 +124,9 @@ def get_token():
     if client_id is None:
         return jsonify({"error": "invalid_client", "message": auth_error}), 401
 
-    client_allowed_scopes = CLIENTS[client_id]["allowed_scopes"]
+    client_info = CLIENTS.get(client_id)
+    client_allowed_scopes = client_info["allowed_scopes"]
+
     granted_scopes, scope_error = validate_scopes(requested_scopes_str, client_allowed_scopes)
 
     if granted_scopes is None:
@@ -153,22 +142,32 @@ def get_token():
     }), 200
 
 @app.route('/protected', methods=['GET'])
-@require_scopes(['read']) # This resource requires 'read' scope
+@require_scopes(['read'])
 def protected_resource():
-    """
-    A sample protected resource requiring 'read' scope.
-    """
+    # ... (your existing code for protected_resource) ...
     client_id = request.token_payload.get('sub')
     return jsonify({"message": f"Hello, {client_id}! You accessed a protected resource with 'read' scope."}), 200
 
-@app.route('/protected/admin', methods=['POST'])
-@require_scopes(['admin:data', 'write']) # This resource requires both 'admin:data' AND 'write' scopes
+@app.route('/protected/admin', methods=['GET']) # Ensure this method matches your Postman request (GET/POST)
+@require_scopes(['admin:data', 'write'])
 def protected_admin_resource():
-    """
-    A sample protected admin resource requiring 'admin:data' and 'write' scope.
-    """
+    # ... (your existing code for protected_admin_resource) ...
     client_id = request.token_payload.get('sub')
     return jsonify({"message": f"Hello, {client_id}! You performed an admin action."}), 200
 
+@app.route('/protected/no-scope', methods=['GET'])
+@require_scopes([])
+def protected_no_scope_resource():
+    # ... (your existing code for protected_no_scope_resource) ...
+    client_id = request.token_payload.get('sub')
+    return jsonify({"message": f"Hello, {client_id}! You accessed a protected resource requiring just a valid token."}), 200
 
-app = Flask(__name__)
+
+# --- OPTIONAL: For very basic local development testing only ---
+# This block is ignored by Gunicorn when deployed.
+if __name__ == '__main__':
+    print(f"Local OAuth Server (Development Mode) starting...")
+    print(f"Client Credentials: {CLIENTS}")
+    print(f"JWT Secret: {JWT_SECRET_KEY}")
+    # Run the Flask development server, binding to 0.0.0.0 for external access
+    app.run(host='0.0.0.0', port=5000, debug=True)
