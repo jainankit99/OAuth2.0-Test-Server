@@ -9,7 +9,7 @@ from functools import wraps
 from flask import Flask, request, jsonify
 import logging
 
-logging.baseConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # --- Configuration for Testing ---
 CLIENTS = {
     "testclient_id": {
