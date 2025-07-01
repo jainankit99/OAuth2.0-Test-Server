@@ -7,7 +7,9 @@ import time
 import datetime
 from functools import wraps
 from flask import Flask, request, jsonify
+import logging
 
+logging.baseConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # --- Configuration for Testing ---
 CLIENTS = {
     "testclient_id": {
@@ -113,6 +115,9 @@ def require_scopes(required_scopes_list):
 # These MUST use the 'app' defined at the top level
 @app.route('/oauth/token', methods=['POST'])
 def get_token():
+    logging.info(f"Incoming /oauth/token request from: {request.remote_addr}")
+    logging.info(f"Request Header: {request.headers}")
+    logging.info(f"Request Args: {request.args}")
     # ... (your existing code for get_token) ...
     grant_type = request.form.get('grant_type')
     requested_scopes_str = request.form.get('scope', '')
