@@ -126,10 +126,6 @@ def get_token():
     logging.info(f"Grant Type: {grant_type}")
     logging.info(f"Scope: {scope_str}")
     logging.info(f"Incoming /oauth/token request from: {request.remote_addr}")
-    
-    # ... (your existing code for get_token) ...
-    grant_type = request.form.get('grant_type')
-    requested_scopes_str = request.form.get('scope', '')
 
     if grant_type != 'client_credentials':
         return jsonify({"error": "unsupported_grant_type", "message": "Only 'client_credentials' grant type is supported"}), 400
