@@ -137,7 +137,7 @@ def get_token():
     client_info = CLIENTS.get(client_id)
     client_allowed_scopes = client_info["allowed_scopes"]
 
-    granted_scopes, scope_error = validate_scopes(requested_scopes_str, client_allowed_scopes)
+    granted_scopes, scope_error = validate_scopes(scope_str, client_allowed_scopes)
 
     if granted_scopes is None:
         return jsonify({"error": "invalid_scope", "message": scope_error}), 400
