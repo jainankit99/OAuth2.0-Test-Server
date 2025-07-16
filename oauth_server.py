@@ -117,8 +117,10 @@ def require_scopes(required_scopes_list):
 def get_token():
     if request.is_json:
         request_data = request.get_json()
+        logging.info(f"Request json: {request_data}")
     else:
         request_data = request.form
+        logging.info(f"else block: {request_data}")
     grant_type = request_data.get('grant_type')
     scope_str = request_data.get('scope', '')
     logging.info(f"Grant Type: {grant_type}")
